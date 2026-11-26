@@ -24,13 +24,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
-      - name: Find the Android project
+      - name: Find the Android project (unzips an uploaded .zip automatically)
         id: find
         run: |
           echo "Files in the repository:"; ls -la
-          F=$(find . -maxdepth 4 -name settings.gradle.kts -not -path "*/node_modules/*" | head -1)
-          if [ -z "$F" ]; then echo "::error::settings.gradle.kts was not found. Upload the CONTENTS of the listener folder (app, build.gradle.kts, settings.gradle.kts, ...) to the root of the repository."; exit 1; fi
-          D=$(dirname "$F"); echo "Project folder: $D"; ls -la "$D" "$D/app" || true
+          F=$(find . -maxdepth 4 -name settings.gradle.kts -not -path "./_unzipped/*" | head -1)
+          if [ -z "$F" ]; then
+            Z=$(find . -maxdepth 2 -iname "*.zip" | head -1)
+            if [ -n "$Z" ]; then
+              echo "Found a zip file ($Z). Unzipping it."
+              mkdir -p _unzipped && unzip -q -o "$Z" -d _unzipped
+              F=$(find _unzipped -maxdepth 5 -name settings.gradle.kts | head -1)
+            fi
+          fi
+          if [ -z "$F" ]; then echo "::error::The Android project was not found. Upload the AsiaPay-listener-app zip file (or its extracted files) to the repository."; exit 1; fi
+          D=$(dirname "$F"); echo "Project folder: $D"; ls -la "$D" "$D/app"
           echo "dir=$D" >> "$GITHUB_OUTPUT"
       - name: Build release and debug APKs
         working-directory: ${{ steps.find.outputs.dir }}
