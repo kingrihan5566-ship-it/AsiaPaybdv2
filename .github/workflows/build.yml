@@ -24,9 +24,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
+      - name: Find the Android project
+        id: find
+        run: |
+          echo "Files in the repository:"; ls -la
+          F=$(find . -maxdepth 4 -name settings.gradle.kts -not -path "*/node_modules/*" | head -1)
+          if [ -z "$F" ]; then echo "::error::settings.gradle.kts was not found. Upload the CONTENTS of the listener folder (app, build.gradle.kts, settings.gradle.kts, ...) to the root of the repository."; exit 1; fi
+          D=$(dirname "$F"); echo "Project folder: $D"; ls -la "$D" "$D/app" || true
+          echo "dir=$D" >> "$GITHUB_OUTPUT"
       - name: Build release and debug APKs
+        working-directory: ${{ steps.find.outputs.dir }}
         run: gradle :app:assembleRelease :app:assembleDebug --no-daemon --stacktrace
       - name: Collect APKs
+        working-directory: ${{ steps.find.outputs.dir }}
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/release/*.apk dist/AsiaPayListener-release.apk
@@ -35,6 +45,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: AsiaPayListener-apk
-          path: dist/*.apk
+          path: "**/dist/*.apk"
           if-no-files-found: error
           retention-days: 30
